@@ -1,0 +1,43 @@
+---
+firewall_rules:
+  - port: '9100/tcp'
+    permanent: yes
+    immediate: yes
+    state: enabled
+  - port: '80/tcp'
+    permanent: yes
+    immediate: yes
+    state: enabled
+enable_worker_cronjobs: &enable_cron true
+enable_purge_cronjobs: &enable_purge true
+disable_worker_email: &disable_email true
+dlrn_server_type: primary
+dlrn_enable_https: false
+dlrn_manage_letsencrypt: false
+dlrn_host: trunk-centos8
+web_domain: '10.0.78.125'
+dlrn_workers:
+  osp-trunk-deps:
+    distro: 'centos9'
+    target: 'centos9-master-uc'
+    project_name: 'Trunk Deps'
+    distgit_branch: 'rpm-master'
+    distro_branch: 'master'
+    disable_email: true
+    enable_cron: false
+    enable_purge: false
+    symlinks: ['/var/www/html/trunk-deps']
+    release: 'antelope'
+    baseurl: 'http://{{ web_domain }}/trunk-deps'
+    pkginfo_driver: 'dlrn.drivers.rdoinfo.RdoInfoDriver'
+    build_driver: 'dlrn.drivers.mockdriver.MockBuildDriver'
+    db_connection: 'sqlite:///commits.sqlite'
+    mock_tmpfs_enable: true
+    fallback_to_master: true
+    include_srpm_in_repo: true
+    enable_deps_sync: false
+    enable_brs_sync: false
+    use_components: true
+    allow_force_rechecks: true
+    mock_config: 'centos9preview.cfg.j2'
+    keep_changelog: true

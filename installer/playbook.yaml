@@ -1,0 +1,17 @@
+- name: poc dlrn deps
+  hosts: dlrn
+  become: yes
+  tasks:
+    - name: Pre-install some packages
+      package:
+        name:
+          - openssh-server
+          - cronie
+
+    - name: "Include firewalld"
+      include_role:
+        name: "service/firewalld"
+
+    - name: "Include dlrn"
+      include_role:
+        name: "dlrn"

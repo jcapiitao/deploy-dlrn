@@ -1,0 +1,11 @@
+all:
+  children:
+    dlrn:
+      hosts:
+        osp-trunk-deps: {}
+  hosts:
+    osp-trunk-deps:
+      ansible_host: '10.0.78.125'
+      ansible_port: 22
+      ansible_python_interpreter: auto
+      ansible_user: centos
