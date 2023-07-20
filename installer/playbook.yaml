@@ -4,9 +4,8 @@
   tasks:
     - name: Pre-install some packages
       package:
-        name:
-          - openssh-server
-          - cronie
+        name: "{{ item }}"
+      with_items: "{{ base_packages }}"
 
     - name: "Include firewalld"
       include_role:

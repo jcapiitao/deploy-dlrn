@@ -41,3 +41,10 @@ dlrn_workers:
     allow_force_rechecks: true
     mock_config: 'centos9preview.cfg.j2'
     keep_changelog: true
+
+base_packages:
+  - openssh-server
+  - cronie
+  - neovim
+  - python3-neovim
+  - tmux
