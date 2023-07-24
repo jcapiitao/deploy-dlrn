@@ -42,7 +42,7 @@ dlrn_workers:
     mock_config: 'centos9preview.cfg.j2' # migrate to 'rhel8.cfg.j2' after POC
     keep_changelog: true # it may be removed
     tags: 'antelope'
-    rdoinfo_repo: 'https://github.com/jcapiitao/rdoinfo'
+    downstream_distroinfo_repo: 'https://github.com/jcapiitao/rdoinfo'
     downstream_info_files: 'poc-dlrn-deps.yml'
     downstream_distro_branch: ''
     downstream_source_git_key: 'poc-patches'

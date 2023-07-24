@@ -9,9 +9,8 @@ if [ ! -f $HOME/.ssh/id_rsa ]; then
   ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
 fi
 
-if [ ! -d $HOME/ansible-role-dlrn ]; then
-  git clone https://github.com/jcapiitao/ansible-role-dlrn.git $HOME/ansible-role-dlrn
-fi
+rm -rf $HOME/ansible-role-dlrn
+git clone https://github.com/jcapiitao/ansible-role-dlrn.git $HOME/ansible-role-dlrn
 
 if [ ! -d $HOME/sf-infra ]; then
   git clone https://github.com/softwarefactory-project/sf-infra $HOME/sf-infra
