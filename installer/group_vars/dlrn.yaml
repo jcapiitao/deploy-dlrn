@@ -21,26 +21,35 @@ dlrn_workers:
     distro: 'centos9'
     target: 'centos9-master-uc'
     project_name: 'Trunk Deps'
-    distgit_branch: 'rpm-master'
-    distro_branch: 'master'
+    distgit_branch: 'rpm-master' # not needed
+    distro_branch: 'master' # not needed
     disable_email: true
     enable_cron: false
     enable_purge: false
     symlinks: ['/var/www/html/trunk-deps']
     release: 'antelope'
     baseurl: 'http://{{ web_domain }}/trunk-deps'
-    pkginfo_driver: 'dlrn.drivers.rdoinfo.RdoInfoDriver'
-    build_driver: 'dlrn.drivers.mockdriver.MockBuildDriver'
+    pkginfo_driver: 'dlrn.drivers.downstream.DownstreamDepsInfoDriver'
+    build_driver: 'dlrn.drivers.mockdriver.MockBuildDriver' #'dlrn.drivers.kojidriver.KojiBuildDriver' after POC
     db_connection: 'sqlite:///commits.sqlite'
     mock_tmpfs_enable: true
     fallback_to_master: true
     include_srpm_in_repo: true
     enable_deps_sync: false
     enable_brs_sync: false
-    use_components: true
+    use_components: true # maybe use 'deps' component
     allow_force_rechecks: true
-    mock_config: 'centos9preview.cfg.j2'
-    keep_changelog: true
+    mock_config: 'centos9preview.cfg.j2' # migrate to 'rhel8.cfg.j2' after POC
+    keep_changelog: true # it may be removed
+    tags: 'antelope'
+    rdoinfo_repo: 'https://github.com/jcapiitao/rdoinfo'
+    downstream_info_files: 'poc-dlrn-deps.yml'
+    downstream_distro_branch: ''
+    downstream_source_git_key: 'poc-patches'
+    downstream_tag: 'poc-deps'
+    downstream_distgit_key: 'osp-distgit'
+    use_upstream_spec: true
+    downstream_spec_replace_list: '^%global with_doc.+/%global with_doc 0,^%global rhosp.*/%global rhosp 1'
 
 base_packages:
   - openssh-server
