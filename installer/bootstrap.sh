@@ -10,7 +10,7 @@ if [ ! -f $HOME/.ssh/id_rsa ]; then
 fi
 
 if [ ! -d $HOME/ansible-role-dlrn ]; then
-  git clone https://github.com/rdo-infra/ansible-role-dlrn.git $HOME/ansible-role-dlrn
+  git clone https://github.com/jcapiitao/ansible-role-dlrn.git $HOME/ansible-role-dlrn
 fi
 
 if [ ! -d $HOME/sf-infra ]; then
