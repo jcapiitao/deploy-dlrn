@@ -29,7 +29,7 @@ dlrn_workers:
     symlinks: ['/var/www/html/trunk-deps']
     release: 'antelope'
     baseurl: 'http://{{ web_domain }}/trunk-deps'
-    pkginfo_driver: 'dlrn.drivers.downstream.DownstreamDepsInfoDriver'
+    pkginfo_driver: 'dlrn.drivers.downstreamdeps.DownstreamDepsInfoDriver'
     build_driver: 'dlrn.drivers.mockdriver.MockBuildDriver' #'dlrn.drivers.kojidriver.KojiBuildDriver' after POC
     db_connection: 'sqlite:///commits.sqlite'
     mock_tmpfs_enable: true
@@ -40,7 +40,7 @@ dlrn_workers:
     use_components: true # maybe use 'deps' component
     allow_force_rechecks: true
     mock_config: 'centos9preview.cfg.j2' # migrate to 'rhel8.cfg.j2' after POC
-    keep_changelog: true # it may be removed
+    keep_changelog: true # it may be removed as we keep SPEC as-is
     tags: 'antelope'
     downstream_distroinfo_repo: 'https://github.com/jcapiitao/rdoinfo'
     downstream_info_files: 'poc-dlrn-deps.yml'
