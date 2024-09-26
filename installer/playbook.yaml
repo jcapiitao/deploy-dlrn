@@ -1,5 +1,5 @@
 - name: poc dlrn deps
-  hosts: dlrn
+  hosts: rdo-cs10
   become: yes
   tasks:
     - name: Pre-install some packages
