@@ -3,16 +3,16 @@ all:
     dlrn:
       hosts:
         osp-trunk-deps: {}
-    rdo-cs10:
+    cs10:
       hosts:
-        rdo-cs10: {}
+        cs10-trunk-bootstrap: {}
   hosts:
     osp-trunk-deps:
       ansible_host: '10.0.78.125'
       ansible_port: 22
       ansible_python_interpreter: auto
       ansible_user: centos
-    rdo-cs10:
+    cs10-trunk-bootstrap:
       ansible_host: '10.0.79.140'
       ansible_port: 22
       ansible_python_interpreter: auto

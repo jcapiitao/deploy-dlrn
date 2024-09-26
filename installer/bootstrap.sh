@@ -10,7 +10,7 @@ ansible-galaxy collection install ansible.posix community.general community.cryp
 #fi
 
 rm -rf $HOME/ansible-role-dlrn
-git clone https://github.com/jcapiitao/ansible-role-dlrn.git ./ansible-role-dlrn
+git clone https://github.com/rdo-infra/ansible-role-dlrn.git ./ansible-role-dlrn
 
 if [ ! -d $HOME/sf-infra ]; then
   git clone https://github.com/softwarefactory-project/sf-infra ./sf-infra

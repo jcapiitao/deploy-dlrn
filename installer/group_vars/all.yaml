@@ -1,0 +1,16 @@
+---
+firewall_rules:
+  - port: '9100/tcp'
+    permanent: yes
+    immediate: yes
+    state: enabled
+  - port: '80/tcp'
+    permanent: yes
+    immediate: yes
+    state: enabled
+
+base_packages:
+  - openssh-server
+  - cronie
+  - vim
+  - tmux

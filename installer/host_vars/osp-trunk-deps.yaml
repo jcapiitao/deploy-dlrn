@@ -1,13 +1,4 @@
 ---
-firewall_rules:
-  - port: '9100/tcp'
-    permanent: yes
-    immediate: yes
-    state: enabled
-  - port: '80/tcp'
-    permanent: yes
-    immediate: yes
-    state: enabled
 enable_worker_cronjobs: &enable_cron true
 enable_purge_cronjobs: &enable_purge true
 disable_worker_email: &disable_email true

@@ -1,5 +1,5 @@
-- name: poc dlrn deps
-  hosts: rdo-cs10
+- name: Deploy DLRN trunk
+  hosts: all
   become: yes
   tasks:
     - name: Pre-install some packages

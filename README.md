@@ -14,4 +14,5 @@ ansible -i hosts.yaml all -m ping
 
 # Run the playbook
 ansible-playbook playbook.yaml
+ansible-playbook -l cs10 playbook.yaml
 ```
