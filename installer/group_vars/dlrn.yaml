@@ -46,6 +46,7 @@ dlrn_workers:
     downstream_info_files: 'poc-dlrn-deps.yml'
     downstream_distro_branch: ''
     downstream_source_git_key: 'poc-patches'
+    downstream_source_git_branch: rhos-18.0-trunk-patches
     downstream_tag: 'poc-deps'
     downstream_distgit_key: 'osp-distgit'
     use_upstream_spec: true
