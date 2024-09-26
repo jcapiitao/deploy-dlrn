@@ -1,9 +1,9 @@
-# poc-dlrn-deps
+# deploy-dlrn
 
 ## Installer
 Run the commands below on a F37+ system
 ``` bash
-cd ~/poc-dlrn-deps/installer
+cd ./installer
 ./bootstrap.sh
 
 # Then copy/paste pubkey to the DLRN server
