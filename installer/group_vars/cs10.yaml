@@ -7,18 +7,19 @@ dlrn_enable_https: false
 dlrn_manage_letsencrypt: false
 dlrn_host: trunk-centos9
 web_domain: '10.0.79.140'
+worker_name: 'centos10-master-preview'
 dlrn_workers:
   centos10-master-preview:
     distro: 'centos10'
-    target: 'centos10-master-preview'
+    target: '{{ worker_name }}'
     distgit_branch: 'rpm-master'
     distro_branch: 'master'
     disable_email: true
     enable_cron: false
     enable_purge: false
-    symlinks: ['/var/www/html/centos10-master-preview']
+    symlinks: ['/var/www/html/{{ worker_name }}']
     release: 'epoxy-uc'
-    baseurl: 'http://{{ web_domain }}/centos10-master-preview'
+    baseurl: 'http://{{ web_domain }}/{{ worker_name }}'
     pkginfo_driver: 'dlrn.drivers.rdoinfo.RdoInfoDriver'
     build_driver: 'dlrn.drivers.mockdriver.MockBuildDriver'
     db_connection: 'sqlite:///commits.sqlite'

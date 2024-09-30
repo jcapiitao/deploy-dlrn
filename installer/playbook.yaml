@@ -14,3 +14,12 @@
     - name: "Include dlrn"
       include_role:
         name: "dlrn"
+
+- name: Extra tasks for CS10 Trunk
+  hosts: cs10
+  become: yes
+  tasks:
+    - name: "Include extra tasks"
+      tags: [cs10, extra]
+      ansible.builtin.include_tasks:
+        file: "extra-cs10.yaml"
