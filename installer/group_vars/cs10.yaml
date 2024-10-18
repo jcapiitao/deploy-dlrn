@@ -17,7 +17,7 @@ dlrn_workers:
     disable_email: true
     enable_cron: false
     enable_purge: false
-    symlinks: ['/var/www/html/{{ worker_name }}']
+    symlinks: ['/var/www/html/{{ worker_name }}', '/var/www/html/centos10-2025.1']
     release: 'epoxy-uc'
     baseurl: 'http://{{ web_domain }}/{{ worker_name }}'
     pkginfo_driver: 'dlrn.drivers.rdoinfo.RdoInfoDriver'

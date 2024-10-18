@@ -3,23 +3,25 @@
   become: yes
   tasks:
     - name: Pre-install some packages
+      tags: [pre]
       package:
         name: "{{ item }}"
       with_items: "{{ base_packages }}"
 
     - name: "Include firewalld"
+      tags: [pre]
       include_role:
         name: "service/firewalld"
 
     - name: "Include dlrn"
+      tags: [dlrn]
       include_role:
         name: "dlrn"
+        apply:
+          tags:
+             - dlrn
 
-- name: Extra tasks for CS10 Trunk
-  hosts: cs10
-  become: yes
-  tasks:
-    - name: "Include extra tasks"
-      tags: [cs10, extra]
+    - name: "Include post tasks"
+      tags: [cs10, tooling]
       ansible.builtin.include_tasks:
-        file: "extra-cs10.yaml"
+        file: "post.yaml"

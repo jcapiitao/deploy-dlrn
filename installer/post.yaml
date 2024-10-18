@@ -1,6 +1,6 @@
 ---
 - name: "Upload dlrn-deps.repo file"
-  tags: [extra]
+  tags: [cs10]
   ansible.builtin.template:
     src: "templates/dlrn-deps.repo.j2"
     dest: "/home/{{ worker_name }}/data/repos/dlrn-deps.repo"
@@ -9,7 +9,7 @@
     mode: '0644'
 
 - name: "Create delorean-deps.repo symlink"
-  tags: [extra]
+  tags: [cs10]
   ansible.builtin.file:
     src: "/home/{{ worker_name }}/data/repos/dlrn-deps.repo"
     dest: "/home/{{ worker_name }}/data/repos/delorean-deps.repo"
@@ -18,7 +18,7 @@
     state: link
 
 - name: "Create deps and build-deps repo"
-  tags: [extra, test]
+  tags: [cs10]
   ansible.builtin.file:
     path: "/home/{{ worker_name }}/data/repos/{{ item }}"
     owner: "{{ worker_name }}"
@@ -28,3 +28,15 @@
   with_items:
     - "deps"
     - "build-deps"
+
+- name: "Temporary install centos-packager from EPEL for CS9"
+  tags: [tooling]
+  shell:
+    cmd: |
+      sudo {{ ansible_pkg_mgr }} install -y 'dnf-command(config-manager)';
+      sudo {{ ansible_pkg_mgr }} config-manager --set-enabled crb;
+      sudo {{ ansible_pkg_mgr }} install -y epel-release;
+      sudo {{ ansible_pkg_mgr }} install -y centos-packager;
+      sudo {{ ansible_pkg_mgr }} remove -y epel-release
+  changed_when: true
+  when: ansible_distribution_major_version|int == 9
