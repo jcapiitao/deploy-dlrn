@@ -30,14 +30,43 @@
     - "build-deps"
     - "rabbitmq-deps"
 
-- name: "Temporary install centos-packager from EPEL for CS9"
+- name: "Install required packages"
+  tags: [tooling]
+  become: true
+  ansible.builtin.package:
+    name:
+      - less
+
+- name: "Temporary install centos-packager and neovim from EPEL for CS9"
   tags: [tooling]
   shell:
     cmd: |
       sudo {{ ansible_pkg_mgr }} install -y 'dnf-command(config-manager)';
       sudo {{ ansible_pkg_mgr }} config-manager --set-enabled crb;
       sudo {{ ansible_pkg_mgr }} install -y epel-release;
-      sudo {{ ansible_pkg_mgr }} install -y centos-packager;
+      sudo {{ ansible_pkg_mgr }} install -y centos-packager neovim;
       sudo {{ ansible_pkg_mgr }} remove -y epel-release
   changed_when: true
   when: ansible_distribution_major_version|int == 9
+
+- name: "Create some required directories"
+  tags: [cs10, tooling]
+  ansible.builtin.file:
+    path: "/home/{{ worker_name }}/{{ item }}"
+    owner: "{{ worker_name }}"
+    group: "{{ worker_name }}"
+    state: directory
+    mode: '0755'
+  with_items:
+    - "workspace"
+    - ".bashrc.d"
+
+- name: "Add some rules in bashrc"
+  tags: [tooling]
+  copy:
+    content: |
+      set -o vi
+    dest: "/home/{{ worker_name }}/.bashrc.d/rc"
+    owner: "{{ worker_name }}"
+    group: "{{ worker_name }}"
+    mode: 0640
