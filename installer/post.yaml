@@ -17,7 +17,7 @@
     group: "{{ worker_name }}"
     state: link
 
-- name: "Create deps and build-deps repo"
+- name: "Create deps, build-deps and rabbitmq-deps repo"
   tags: [cs10]
   ansible.builtin.file:
     path: "/home/{{ worker_name }}/data/repos/{{ item }}"
@@ -28,6 +28,7 @@
   with_items:
     - "deps"
     - "build-deps"
+    - "rabbitmq-deps"
 
 - name: "Temporary install centos-packager from EPEL for CS9"
   tags: [tooling]
