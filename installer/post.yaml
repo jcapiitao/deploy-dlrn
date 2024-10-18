@@ -36,6 +36,8 @@
   ansible.builtin.package:
     name:
       - less
+      - rpmdevtools
+      - git
 
 - name: "Temporary install centos-packager and neovim from EPEL for CS9"
   tags: [tooling]
@@ -66,7 +68,19 @@
   copy:
     content: |
       set -o vi
+      alias vim=nvim
     dest: "/home/{{ worker_name }}/.bashrc.d/rc"
     owner: "{{ worker_name }}"
     group: "{{ worker_name }}"
     mode: 0640
+
+- name: "Copy some files"
+  tags: [cs10]
+  copy:
+    src: "files/{{ item }}"
+    dest: "/home/{{ worker_name }}/workspace/{{ item }}"
+    owner: "{{ worker_name }}"
+    group: "{{ worker_name }}"
+    mode: 0644
+  with_items:
+    - "functions.sh"

@@ -22,6 +22,6 @@
              - dlrn
 
     - name: "Include post tasks"
-      tags: [cs10, tooling]
+      tags: [cs10, tooling, test]
       ansible.builtin.include_tasks:
         file: "post.yaml"
