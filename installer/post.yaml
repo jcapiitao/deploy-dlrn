@@ -74,6 +74,24 @@
     group: "{{ worker_name }}"
     mode: 0640
 
+- name: "Configure tmux"
+  tags: [tooling]
+  copy:
+    content: |
+      bind -r h select-pane -L
+      bind -r j select-pane -D
+      bind -r k select-pane -U
+      bind -r l select-pane -R
+      # windows navigation
+      unbind n
+      unbind p
+      bind -r C-h previous-window # select previous window
+      bind -r C-l next-window # select next window
+    dest: "/home/{{ worker_name }}/.tmux.conf"
+    owner: "{{ worker_name }}"
+    group: "{{ worker_name }}"
+    mode: 0640
+
 - name: "Copy some files"
   tags: [cs10]
   copy:
