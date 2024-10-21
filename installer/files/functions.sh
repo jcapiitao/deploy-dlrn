@@ -8,6 +8,7 @@ function create_mock_config(){
     mkdir $REPO_PATH >/dev/null 2>&1
     cp /etc/mock/centos-stream-10-x86_64.cfg $MOCK_CONFIG_FILE
     sed -i "s/config_opts\['root'\].*/config_opts['root'] = '${CHROOT}-x86_64'/" ${MOCK_CONFIG_FILE}
+    sed -i "1s/^/config_opts['dist'] = 'el10s'\n/" ${MOCK_CONFIG_FILE}
     cat <<EOF >> ${MOCK_CONFIG_FILE}
 config_opts['dnf.conf'] += """
 [${CHROOT}]
@@ -17,8 +18,20 @@ enabled=1
 gpgcheck=0
 """
 EOF
-    createrepo $REPO_PATH
-    echo -e "The mock configuratin file is created $MOCK_CONFIG_FILE"
+    [ "$(ls -A $REPO_PATH)" ] || create_repo $REPO_PATH
+    print_out 0 "Mock conf file \t\tOK => $MOCK_CONFIG_FILE"
+}
+
+function create_repo(){
+    repo_path=$1
+    result=$(createrepo $repo_path)
+    if [[ $? -eq 0 ]]; then
+        print_out 0 "Repo generation \tOK => $repo_path"
+    else
+        print_out 0 "Repo generation \tNOT OK"
+        print_out 0 "$result"
+        return 1
+    fi
 }
 
 function prepare_rpm_topdir(){
@@ -59,14 +72,14 @@ function build_srpm(){
     # Download remote sources (only) with debug enabled
     download_sources=$(spectool -g -S -D -C $source_dir $spec_dir/*.spec 2>/dev/null)
     print_out 1 $download_sources
-    print_out 0 "Build SRPM init \tOK"
     
-    rpmbuild -bs --define="_rpmdir ${rpm_dir}" --define="_srcrpmdir ${srpm_dir}" --define="_sourcedir ${source_dir}" --define="_specdir ${spec_dir}" --define="_builddir ${build_dir}" --define="dist ${dist}" --buildroot='${buildroot_dir}' ${spec_dir}/*.spec
+    result=$(rpmbuild -bs --define="_rpmdir ${rpm_dir}" --define="_srcrpmdir ${srpm_dir}" --define="_sourcedir ${source_dir}" --define="_specdir ${spec_dir}" --define="_builddir ${build_dir}" --define="dist ${dist}" --buildroot='${buildroot_dir}' ${spec_dir}/*.spec)
     srpm_filename=$(find $srpm_dir -name *.src.rpm -printf "%f")
     if [ -n "$srpm_filename" ]; then
         print_out 0 "Build SRPM \t\tOK => $srpm_filename"
     else
         print_out 0 "Error while building SRPM"
+        print_out 0 "$result"
         return 1
     fi
 }
@@ -82,17 +95,14 @@ function mock_build {
         echo -e "Error: needs mock_config_path and SRPM as arguments"
         return 1
     fi
-    mock -r $mock_config_path $srpm_file
-    RET_CODE=$?
     build_dir=$(find $PWD -maxdepth 2 -name BUILD -type d)
     mkdir $build_dir/$ts
-    rm current >/dev/null 2>&1
+    rm $build_dir/current >/dev/null 2>&1
     ln -s $build_dir/$ts $build_dir/current
-    mock_config=$(basename $mock_config_path)
-    cp /var/lib/mock/${mock_config%.*}/result/* $build_dir/current/
-    if [ $RET_CODE -eq 0 ]; then
+    mock -r $mock_config_path $srpm_file --resultdir $build_dir/current
+    if [ $? -eq 0 ]; then
         print_out 0 "Local build \t\t[SUCCESS]"
-    elif [ $RET_CODE -eq 1 ]; then
+    elif [ $? -eq 1 ]; then
         print_out 0 "Local build \t\t[ERROR] \nSee details in $build_dir/current"
         return 1
     else
@@ -110,8 +120,8 @@ function build {
     build_srpm
     mock_build $mock_config_path
     if [[ $? -eq 0 ]]; then
-        cp *.rpm $repo_path
-	createrepo $repo_path
+        cp $build_dir/current/*.rpm $repo_path
+	create_repo $repo_path
     fi
 }
 function print_out {
