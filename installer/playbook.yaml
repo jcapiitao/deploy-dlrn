@@ -25,3 +25,9 @@
       tags: [cs10, tooling, test]
       ansible.builtin.include_tasks:
         file: "post.yaml"
+
+  handlers:
+    - name: Restart httpd
+      ansible.builtin.service:
+        name: httpd
+        state: restarted

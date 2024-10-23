@@ -68,6 +68,12 @@ function build_srpm(){
     pkg_dir="${1:-$PWD}"
     dist=.el10s
 
+    is_diff=$(git diff)
+    if [ -n "$is_diff" ]; then
+        print_out 0 "${is_diff}"
+        print_out 0 "There is changes not committed."
+        return 2
+    fi
     prepare_rpm_topdir $pkg_dir $dist
     # Download remote sources (only) with debug enabled
     download_sources=$(spectool -g -S -D -C $source_dir $spec_dir/*.spec 2>/dev/null)
@@ -77,6 +83,7 @@ function build_srpm(){
     srpm_filename=$(find $srpm_dir -name *.src.rpm -printf "%f")
     if [ -n "$srpm_filename" ]; then
         print_out 0 "Build SRPM \t\tOK => $srpm_filename"
+	git log --oneline -1 | grep -i -e "cs10 bootstrap" && git format-patch --start-number 1000 -N HEAD~ -o .
     else
         print_out 0 "Error while building SRPM"
         print_out 0 "$result"
@@ -118,12 +125,34 @@ function build {
     repo_path="${HOME}/data/repos/${repo_name}"
     create_mock_config $mock_config
     build_srpm
+    if [[ $? -eq 2 ]]; then
+        return 2
+    fi
     mock_build $mock_config_path
     if [[ $? -eq 0 ]]; then
         cp $build_dir/current/*.rpm $repo_path
 	create_repo $repo_path
+        srpm_filename=$(find $build_dir/current/ -name "*.src.rpm" -printf "%f")
+	log_build_order $repo_path $srpm_filename
+	log_build_info $repo_path $srpm_filename
     fi
 }
+
+function log_build_info {
+    repo_path="$1"
+    srpm_filename="$2"
+    test -f 1000-*.patch && cp 1000-*.patch $repo_path/$srpm_filename.patch
+    > $repo_path/$srpm_filename.buildinfo
+    echo -e "$(git branch -vv)" >> $repo_path/$srpm_filename.buildinfo
+    echo -e "$(git remote -v)" >> $repo_path/$srpm_filename.buildinfo
+}
+
+function log_build_order {
+    repo_path="$1"
+    srpm_filename="$2"
+    echo -e "$srpm_filename" >> $repo_path/build_order.log
+}
+
 function print_out {
     local THIS_LEVEL=$1
     shift

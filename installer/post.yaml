@@ -69,7 +69,28 @@
     content: |
       set -o vi
       alias vim=nvim
+      source ~/workspace/functions.sh
     dest: "/home/{{ worker_name }}/.bashrc.d/rc"
+    owner: "{{ worker_name }}"
+    group: "{{ worker_name }}"
+    mode: 0640
+
+- name: "Add git config"
+  tags: [tooling]
+  copy:
+    content: |
+      [alias]
+      l = !"l() { git log --pretty=oneline -n ${1:-'20'} --graph --abbrev-commit; }; l"
+      s = status -s
+      d = !"git diff-index --quiet HEAD -- || clear; git diff --patch-with-stat"
+      tags = tag -l
+      branches = branch -a
+      remotes = remote -v
+
+      [user]
+      name = Joel Capitao
+      email = "jcapitao@redhat.com"
+    dest: "/home/{{ worker_name }}/.gitconfig"
     owner: "{{ worker_name }}"
     group: "{{ worker_name }}"
     mode: 0640
@@ -102,3 +123,11 @@
     mode: 0644
   with_items:
     - "functions.sh"
+
+- name: Add patch and buildingo to be interpreted as plain text
+  tags: [cs10]
+  ansible.builtin.lineinfile:
+    path: /etc/httpd/conf.d/25-{{ web_domain}}.conf
+    regexp: '^    AddType text/plain'
+    line: '    AddType text/plain yaml yml patch buildinfo'
+  notify: Restart httpd
