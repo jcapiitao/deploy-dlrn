@@ -48,7 +48,7 @@
       sudo {{ ansible_pkg_mgr }} install -y epel-release;
       sudo {{ ansible_pkg_mgr }} install -y centos-packager neovim;
       sudo {{ ansible_pkg_mgr }} remove -y epel-release
-  changed_when: true
+  changed_when: false
   when: ansible_distribution_major_version|int == 9
 
 - name: "Create some required directories"
@@ -62,6 +62,8 @@
   with_items:
     - "workspace"
     - ".bashrc.d"
+    - ".config/nvim"
+    - ".local/share/nvim/site/autoload"
 
 - name: "Add some rules in bashrc"
   tags: [tooling]
@@ -69,7 +71,7 @@
     content: |
       set -o vi
       alias vim=nvim
-      source ~/workspace/functions.sh
+      source ~/.functions.sh
     dest: "/home/{{ worker_name }}/.bashrc.d/rc"
     owner: "{{ worker_name }}"
     group: "{{ worker_name }}"
@@ -114,15 +116,25 @@
     mode: 0640
 
 - name: "Copy some files"
-  tags: [cs10]
+  tags: [cs10, tooling]
   copy:
     src: "files/{{ item }}"
-    dest: "/home/{{ worker_name }}/workspace/{{ item }}"
+    dest: "/home/{{ worker_name }}/{{ item }}"
     owner: "{{ worker_name }}"
     group: "{{ worker_name }}"
     mode: 0644
   with_items:
-    - "functions.sh"
+    - ".functions.sh"
+    - ".config/nvim/init.vim"
+
+- name: "Install vim-plug"
+  tags: [tooling]
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim"
+    dest: "/home/{{ worker_name }}/.local/share/nvim/site/autoload/"
+    owner: "{{ worker_name }}"
+    group: "{{ worker_name }}"
+    mode: 0644
 
 - name: Add patch and buildingo to be interpreted as plain text
   tags: [cs10]
