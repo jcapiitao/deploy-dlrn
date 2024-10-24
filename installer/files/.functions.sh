@@ -1,25 +1,39 @@
 #/bin/bash
 
+function prepare_mock_build(){
+    local target="${1:-messaging-rabbitmq}"
+    repo_path="${HOME}/data/repos/$target"
+    mock_config_file="${HOME}/workspace/$target/$target-x86_64.cfg"
+}
+
+function add_repo_readme(){
+    local repo_path=${1:-$repo_path}
+    cat <<EOF >> $repo_path/_README.txt
+- build_order.log file contains the order in which the SRPMS/RPMs were built
+- *.buildinfo files contain the distgit URL and the branch from which the SRPMS/RPMS were built
+- *.patch files contain the local changes needed to build. If there is not .patch file for a SRPM, then it was built from the branch without local changes.
+EOF
+}
+
 function create_mock_config(){
-    CHROOT="${1:-messaging10s-rabbitmq}"
-    REPO_NAME="$(echo -e $CHROOT | cut -d- -f2)-deps"
-    REPO_PATH="${HOME}/data/repos/${REPO_NAME}"
-    MOCK_CONFIG_FILE="${HOME}/workspace/${CHROOT}-x86_64.cfg"
-    mkdir $REPO_PATH >/dev/null 2>&1
-    cp /etc/mock/centos-stream-10-x86_64.cfg $MOCK_CONFIG_FILE
-    sed -i "s/config_opts\['root'\].*/config_opts['root'] = '${CHROOT}-x86_64'/" ${MOCK_CONFIG_FILE}
-    sed -i "1s/^/config_opts['dist'] = 'el10s'\n/" ${MOCK_CONFIG_FILE}
-    cat <<EOF >> ${MOCK_CONFIG_FILE}
+    target="${1:-messaging-rabbitmq}"
+    prepare_mock_build $target
+    mkdir -p $repo_path >/dev/null 2>&1
+    add_repo_readme
+    cp /etc/mock/centos-stream-10-x86_64.cfg $mock_config_file
+    sed -i "s/config_opts\['root'\].*/config_opts['root'] = '$target-x86_64'/" $mock_config_file
+    sed -i "1s/^/config_opts['dist'] = 'el10s'\n/" $mock_config_file
+    cat <<EOF >> $mock_config_file
 config_opts['dnf.conf'] += """
-[${CHROOT}]
-name=$CHROOT
-baseurl=file://$REPO_PATH
+[${target}]
+name=$target
+baseurl=file://$repo_path
 enabled=1
 gpgcheck=0
 """
 EOF
-    [ "$(ls -A $REPO_PATH)" ] || create_repo $REPO_PATH
-    print_out 0 "Mock conf file \t\tOK => $MOCK_CONFIG_FILE"
+    [ "$(ls -A $repo_path/repodata)" ] || create_repo $repo_path
+    print_out 0 "Mock conf file \t\tOK => $mock_config_file"
 }
 
 function create_repo(){
@@ -68,6 +82,11 @@ function build_srpm(){
     pkg_dir="${1:-$PWD}"
     dist=.el10s
 
+    spec_filename=$(find . -name *.spec)
+    if [ ! -n "$spec_filename" ]; then
+        print_out 0 "There is no SPEC file."
+        return 2
+    fi
     is_diff=$(git diff)
     if [ -n "$is_diff" ]; then
         print_out 0 "${is_diff}"
@@ -121,13 +140,10 @@ function mock_build {
 }
 
 function build {
-    mock_config="$1"
-    mock_config_path="${HOME}/workspace/${mock_config}-x86_64.cfg"
-    repo_name="$(echo -e $mock_config | cut -d- -f2)-deps"
-    repo_path="${HOME}/data/repos/${repo_name}"
-
+    target="$1"
     is_cbs_el10_builds && return 2
-    create_mock_config $mock_config
+    prepare_mock_build $target
+    create_mock_config $target
     build_srpm
     rc=$?
     if [[ $rc -ne 0 ]]; then
@@ -135,7 +151,7 @@ function build {
     fi
     rm -f 1000-*.patch
     git log --oneline -1 | grep -q -i -e "cs10 bootstrap" && git format-patch --start-number 1000 -N HEAD~ -o .
-    mock_build $mock_config_path
+    mock_build $mock_config_file
     if [[ $? -eq 0 ]]; then
         cp $build_dir/current/*.rpm $repo_path
 	create_repo $repo_path

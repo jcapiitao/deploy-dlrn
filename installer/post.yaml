@@ -28,7 +28,8 @@
   with_items:
     - "deps"
     - "build-deps"
-    - "rabbitmq-deps"
+    - "messaging-rabbitmq"
+    - "nfv"
 
 - name: "Install required packages"
   tags: [tooling]
