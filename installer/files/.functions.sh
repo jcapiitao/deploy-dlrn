@@ -140,25 +140,6 @@ function mock_build {
     fi
 }
 
-function cbs_build {
-    target="$1"
-    srpm_file="$2"
-    is_cbs_el10_builds && return 2
-    if [ ! -n "$srpm_file" ]; then
-        srpm_file=$(find $PWD -maxdepth 1 -name *.src.rpm -type f)
-    fi
-    if [ ! -n "$target" ]; then
-        echo -e "Error: needs target as argument"
-        return 1
-    fi
-    is_cbs_target $target && return 2
-    build_dir=$(find $PWD -maxdepth 2 -name BUILD -type d)
-    ts=$(date +"%Y-%m-%d-%H-%M-%S")
-    mkdir $build_dir/$ts
-    rm $build_dir/current >/dev/null 2>&1
-    ln -s $build_dir/$ts $build_dir/current
-}
-
 function build {
     target="$1"
     is_cbs_el10_builds && return 2
@@ -170,7 +151,8 @@ function build {
         return $rc
     fi
     rm -f 1000-*.patch
-    git log --oneline -1 | grep -q -i -e "cs10 bootstrap" && git format-patch --start-number 1000 -N HEAD~ -o .
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
+    git diff --exit-code $current_branch origin/$current_branch >/dev/null 2>&1 || git format-patch --start-number 1000 -N HEAD~ -o .
     mock_build $mock_config_file
     if [[ $? -eq 0 ]]; then
         cp $build_dir/current/*.rpm $repo_path
@@ -239,7 +221,7 @@ function upload_tarballs_to_look_aside_cache(){
     local centos_tool_path="/tmp/centos-git-common"
     local centos_vers=10
     spec_filename=$(find . -name *.spec)
-    sources_dir=$(find . -maxdepth 1 -name SOURCES -type d)
+    sources_dir="SOURCES"
     if [ ! -n "$spec_filename" ]; then
         print_out 0 "There is no SPEC file."
         return 2
@@ -249,11 +231,10 @@ function upload_tarballs_to_look_aside_cache(){
     spectool -d "rhel ${centos_vers}" -a -l $spec_filename|awk '{print $2}'|grep ^http|while read tarball_url
     do
         tarball="$(basename ${tarball_url})"
-        #$centos_tool_path/lookaside_upload -f $tarball -n $project -b $branch
-        echo -e "Uploading $tarball -n $project -b $branch"
-        checksum=$(sha1sum $tarball)
+        $centos_tool_path/lookaside_upload -f $sources_dir/$tarball -n $project -b $branch
+        checksum=$(sha1sum $sources_dir/$tarball)
         echo "${checksum}" >> .${project}.metadata
-        rm -f ${tarball}
+        rm -f $sources_dir/$tarball
     done
 }
 
@@ -269,12 +250,13 @@ function update_centos_distgit(){
     pushd $tmp_dir >/dev/null
         mkdir {SOURCES,SPECS}
         rpm2cpio ../*.src.rpm  | cpio -idm >/dev/null
-        sources_list=$(spectool -d "rhel $centos_vers" -a -l *.spec 2>/dev/null | awk '{print $2}' | grep -v -e "^http")
-        mv $sources_list SOURCES
         mv *.spec SPECS
+        find . -maxdepth 1 -mindepth 1 -not -name SPECS -not -name SOURCES -exec mv {} SOURCES \;
         upload_tarballs_to_look_aside_cache $project $branch
+        find SOURCES -empty -type d -exec touch SOURCES/.gitkeep \;
     popd >/dev/null
-    [ "$(ls -A centos_distgit >/dev/null 2>&1)" ] || git clone -q ssh://git@git.centos.org/rpms/${project} centos_distgit
+    rm -rf centos_distgit >/dev/null 2>&1
+    git clone -q ssh://git@git.centos.org/rpms/${project} centos_distgit
     pushd centos_distgit >/dev/null
     if git branch -a | grep -q $branch; then
         git checkout $branch
@@ -316,24 +298,25 @@ function build_on_cbs() {
     rm -rf $workdir
     if [[ ! $mode =~ .*--scratch.* ]]; then
         local pkg_name=$(echo $nvr|rev|cut -d- -f3-|rev)
+        local tag_candidate=$(echo $target|cut -d- -f -3)-candidate
         # When not building in scratch mode, if package is not in the tag, let's add.
-        cbs list-pkgs --quiet --package=${pkg_name} --tag=${target}
+        cbs list-pkgs --quiet --package=${pkg_name} --tag=${tag_candidate}
         if [ $? -ne 0 ]; then
-            echo "Adding package ${pkg_name} to ${target} tag"
-            cbs add-pkg ${target} ${pkg_name} --owner=jcapitao
+            echo "Adding package ${pkg_name} to ${tag_candidate} tag"
+            cbs add-pkg ${tag_candidate} ${pkg_name} --owner=jcapitao
         fi
         if [[ $tid != "KO" ]]; then
           echo "Package $nvr already built by task $tid"
           # When not building in scratch mode, if build is not already tagged, tag it.
-          if ! cbs list-tagged ${target} $pkg_name | grep -q -e $nvr; then
-              echo "Build $nvr not already tagged to ${target}, tag it"
-              cbs tag-build ${target} $nvr
+          if ! cbs list-tagged ${tag_candidate} $pkg_name | grep -q -e $nvr; then
+              echo "Build $nvr not already tagged to ${tag_candidate}, tag it"
+              cbs tag-build ${tag_candidate} $nvr
           fi
           return 0
         fi
     fi
     echo "Start build of: $nvr"
-    #cbs build --wait $mode $target $distgit_url
+    cbs build --wait $mode $target $distgit_url
 }
 
 function check_existing_build_on_cbs() {
@@ -349,4 +332,17 @@ function check_existing_build_on_cbs() {
         echo "KO"
         return 1
     fi
+}
+
+function cbs_build {
+    local target="cloud10s-openstack-epoxy-el10s"
+    local project=$(basename $PWD)
+    local branch="c10s-sig-cloud-openstack-epoxy"
+    is_cbs_el10_builds && return 2
+    if [ ! -n "$target" ]; then
+        echo -e "Error: needs target as argument"
+        return 1
+    fi
+    is_cbs_target $target || return 3
+    update_centos_distgit $project $branch && build_on_cbs $target $project --scratch && build_on_cbs $target $project
 }
