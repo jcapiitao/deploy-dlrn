@@ -254,6 +254,13 @@ function update_centos_distgit(){
         find . -maxdepth 1 -mindepth 1 -not -name SPECS -not -name SOURCES -exec mv {} SOURCES \;
         upload_tarballs_to_look_aside_cache $project $branch
         find SOURCES -empty -type d -exec touch SOURCES/.gitkeep \;
+        is_binary_files=$(find SOURCES/ -type f ! -size 0 -exec grep -IL . "{}" \;)
+        if [ -n "$is_binary_files" ]; then
+            echo -e "Error: there is still a binary file in SOURCES"
+            echo -e "$is_binary_files"
+            popd >/dev/null
+            return 4
+        fi
     popd >/dev/null
     rm -rf centos_distgit >/dev/null 2>&1
     git clone -q ssh://git@git.centos.org/rpms/${project} centos_distgit
