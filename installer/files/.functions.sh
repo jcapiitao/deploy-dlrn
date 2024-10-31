@@ -273,9 +273,18 @@ function update_centos_distgit(){
         git config --add user.email "jcapitao@redhat.com"
         nvr=$(basename $srpm_filename .src.rpm)
         git commit -m "Import $nvr in CloudSIG Epoxy"
-        #git push origin ${branch}:${branch}
+        git push origin ${branch}:${branch}
+        if [[ $? -eq 0 ]]; then
+            popd >/dev/null
+            return 0
+        else
+            popd >/dev/null
+            return 1
+        fi
+    else
+        popd >/dev/null
+        return 2
     fi
-    popd >/dev/null
 }
 
 function build_on_cbs() {
