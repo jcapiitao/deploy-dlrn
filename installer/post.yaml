@@ -144,3 +144,12 @@
     regexp: '^    AddType text/plain'
     line: '    AddType text/plain yaml yml patch buildinfo'
   notify: Restart httpd
+
+- name: "Install pip modules"
+  tags: [cs10, tooling]
+  become: true
+  become_user: "{{ worker_name }}"
+  ansible.builtin.pip:
+    name: "{{ item }}"
+  with_items:
+    - "rdopkg"

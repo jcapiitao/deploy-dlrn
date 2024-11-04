@@ -362,3 +362,23 @@ function cbs_build {
     is_cbs_target $target || return 3
     update_centos_distgit $project $branch && build_on_cbs $target $project --scratch && build_on_cbs $target $project
 }
+
+function sync_centos_to_rdo_distgit() {
+    local project=$(basename $PWD)
+    local pkg_info=$(rdopkg findpkg $project)
+    local centos_distgit_url=$(echo -e "$pkg_info" | grep -e "^centos-distgit:" | awk '{print $2}')
+    local rdo_distgit_url=$(echo -e "$pkg_info" | grep -e "^distgit:" | awk '{print $2}')
+    tmp_dir=$(mktemp -d --tmpdir=.)
+    git clone -q $centos_distgit_url $tmp_dir/centos_distgit
+    pushd $tmp_dir/centos_distgit >/dev/null
+    git checkout c10s-sig-cloud-openstack-epoxy
+    popd
+    git clone -q $rdo_distgit_url $tmp_dir/rdo_distgit
+    pushd $tmp_dir/rdo_distgit >/dev/null
+    git checkout c10s-epoxy-rdo
+    rsync -avz --exclude=.git ../centos_distgit/* .
+    version=$(rpmspec -q SPECS/*spec --queryformat="%{VERSION}\n" 2>/dev/null|head -1)
+    git add SOURCES/* SPECS/* *
+    git commit -m "Update to $version"
+    popd
+}
