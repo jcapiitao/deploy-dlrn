@@ -232,7 +232,11 @@ function upload_tarballs_to_look_aside_cache(){
     > .${project}.metadata
     tarball_urls="$(spectool -d "rhel ${centos_vers}" -a -l $spec_filename|awk '{print $2}'|grep ^http) $extra_tarballs_urls"
     for tarball_url in $tarball_urls; do
-        tarballs="$tarballs $(basename ${tarball_url})"
+        local _tarball=""
+        _tarball=$(basename ${tarball_url})
+        if ! grep -q -I . $sources_dir/$_tarball; then
+            tarballs="$tarballs $_tarball"
+        fi
     done
     # remove duplicates
     uniq_tarballs=$(echo -e "$tarballs" | xargs -n1 | sort -u | xargs)
@@ -370,7 +374,7 @@ function cbs_build {
         return 1
     fi
     is_cbs_target $target || return 3
-    update_centos_distgit $project $branch && build_on_cbs $target $project --scratch && build_on_cbs $target $project
+    update_centos_distgit $project $branch && sleep 5 && build_on_cbs $target $project --scratch && build_on_cbs $target $project
 }
 
 function sync_centos_to_rdo_distgit() {
