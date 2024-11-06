@@ -242,6 +242,7 @@ function upload_tarballs_to_look_aside_cache(){
         echo "${checksum}" >> .${project}.metadata
         rm -f $sources_dir/$tarball
     done
+    sed -i '/^$/d' .${project}.metadata
 }
 
 function update_centos_distgit(){
