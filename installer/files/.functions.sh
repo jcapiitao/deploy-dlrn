@@ -214,8 +214,10 @@ function is_cbs_target(){
 function upload_tarballs_to_look_aside_cache(){
     local project=$1
     local branch=$2
-    local tarball=""
-    local tarball_url=""
+    shift 2
+    local extra_tarballs_urls=$@
+    local tarballs=""
+    local tarball_urls=""
     local spec_filename=""
     local sources_dir=""
     local centos_tool_path="/tmp/centos-git-common"
@@ -228,9 +230,13 @@ function upload_tarballs_to_look_aside_cache(){
     fi
     [ "$(ls -A $centos_tool_path)" ] || git clone https://git.centos.org/centos-git-common $centos_tool_path
     > .${project}.metadata
-    spectool -d "rhel ${centos_vers}" -a -l $spec_filename|awk '{print $2}'|grep ^http|while read tarball_url
-    do
-        tarball="$(basename ${tarball_url})"
+    tarball_urls="$(spectool -d "rhel ${centos_vers}" -a -l $spec_filename|awk '{print $2}'|grep ^http) $extra_tarballs_urls"
+    for tarball_url in $tarball_urls; do
+        tarballs="$tarballs $(basename ${tarball_url})"
+    done
+    # remove duplicates
+    uniq_tarballs=$(echo -e "$tarballs" | xargs -n1 | sort -u | xargs)
+    for tarball in $uniq_tarballs; do
         $centos_tool_path/lookaside_upload -f $sources_dir/$tarball -n $project -b $branch
         checksum=$(sha1sum $sources_dir/$tarball)
         echo "${checksum}" >> .${project}.metadata
@@ -252,8 +258,11 @@ function update_centos_distgit(){
         rpm2cpio ../*.src.rpm  | cpio -idm >/dev/null
         mv *.spec SPECS
         find . -maxdepth 1 -mindepth 1 -not -name SPECS -not -name SOURCES -exec mv {} SOURCES \;
-        upload_tarballs_to_look_aside_cache $project $branch
+        # some times tarball are downloaded by the packager so we need to include them as extra in upload_tarballs_to_look_aside_cache script
+        local_tarballs=$(find SOURCES/ -type f ! -size 0 -exec grep -IL . "{}" \;)
+        upload_tarballs_to_look_aside_cache $project $branch $local_tarballs
         find SOURCES -empty -type d -exec touch SOURCES/.gitkeep \;
+        # Double check just in case
         is_binary_files=$(find SOURCES/ -type f ! -size 0 -exec grep -IL . "{}" \;)
         if [ -n "$is_binary_files" ]; then
             echo -e "Error: there is still a binary file in SOURCES"
