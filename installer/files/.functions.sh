@@ -319,10 +319,9 @@ function build_on_cbs() {
         return 1
     fi
     local commit_id=$(git log --pretty=oneline -n 1|awk '{print $1}')
+    local nvr=$(git log --pretty=oneline -n1 | sed "s/.*Import \(.*\) in CloudSIG Epoxy/\1/")
     popd >/dev/null
     local distgit_url="git+https://git.centos.org/rpms/${project}.git#${commit_id}"
-    local srpm_filename=$(find . -maxdepth 1 -name "*.src.rpm" -printf "%f")
-    local nvr=$(basename $srpm_filename .src.rpm)
     local workdir=$(mktemp -d --tmpdir=.)
     local tid=$(check_existing_build_on_cbs $workdir $nvr)
     rm -rf $workdir
