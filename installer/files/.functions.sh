@@ -82,6 +82,7 @@ function build_srpm(){
     pkg_dir="${1:-$PWD}"
     local centos_vers=10
     local dist=.el${centos_vers}s
+    local release=""
 
     spec_filename=$(find . -name *.spec)
     if [ ! -n "$spec_filename" ]; then
@@ -101,8 +102,18 @@ function build_srpm(){
     print_out 1 $download_sources
     
     rm -f $srpm_dir/*.src.rpm
-    result=$(rpmbuild -bs --define="_rpmdir ${rpm_dir}" --define="_srcrpmdir ${srpm_dir}" --define="_sourcedir ${source_dir}" --define="_specdir ${spec_dir}" --define="_builddir ${build_dir}" --define="dist ${dist}" --define="autorelease 1$dist" --define="changelog changelog" --buildroot='${buildroot_dir}' ${spec_dir}/*.spec)
+    release=$(rpmautospec calculate-release | awk '{print $4}')
+    if grep -q -e "%autorelease" ${spec_dir}/*.spec; then
+        sed -i "s/%autorelease/${release}%{?dist}/" ${spec_dir}/*.spec
+    fi
+    if grep -q -e "%autochangelog" ${spec_dir}/*.spec; then
+        sed -i "/^%autochangelog/d" ${spec_dir}/*.spec
+        rpmautospec generate-changelog >> ${spec_dir}/*.spec
+        sed -i -e '/%changelog/{n;N;N;d;}' ${spec_dir}/*.spec
+    fi
+    result=$(rpmbuild -bs --define="_rpmdir ${rpm_dir}" --define="_srcrpmdir ${srpm_dir}" --define="_sourcedir ${source_dir}" --define="_specdir ${spec_dir}" --define="_builddir ${build_dir}" --define="dist ${dist}" --buildroot='${buildroot_dir}' ${spec_dir}/*.spec)
     srpm_filename=$(find $srpm_dir -name *.src.rpm -printf "%f")
+    git stash >/dev/null
     if [ -n "$srpm_filename" ]; then
         print_out 0 "Build SRPM \t\tOK => $srpm_filename"
 	return 0
