@@ -96,21 +96,25 @@ function build_srpm(){
         print_out 0 "Use: git commit -am 'cs10 bootstrap'"
         return 2
     fi
+    
+    rm -f $srpm_dir/*.src.rpm
+    release=$(rpmautospec calculate-release | awk '{print $4}')
+    if grep -q -e "autorelease" ${spec_dir}/*.spec; then
+        sed -i "s/%autorelease/${release}%{?dist}/" ${spec_dir}/*.spec
+        sed -i "s/%{autorelease}/${release}%{?dist}/" ${spec_dir}/*.spec
+    fi
+    if grep -q -e "autochangelog" ${spec_dir}/*.spec; then
+        sed -i "/^%autochangelog/d" ${spec_dir}/*.spec
+        sed -i "/^%{autochangelog}/d" ${spec_dir}/*.spec
+        rpmautospec generate-changelog >> ${spec_dir}/*.spec
+        sed -i -e '/%changelog/{n;N;N;d;}' ${spec_dir}/*.spec
+    fi
+
     prepare_rpm_topdir $pkg_dir $dist
     # Download remote sources (only) with debug enabled
     download_sources=$(spectool -g -d "rhel ${centos_vers}" -S -D -C $source_dir $spec_dir/*.spec 2>/dev/null)
     print_out 1 $download_sources
-    
-    rm -f $srpm_dir/*.src.rpm
-    release=$(rpmautospec calculate-release | awk '{print $4}')
-    if grep -q -e "%autorelease" ${spec_dir}/*.spec; then
-        sed -i "s/%autorelease/${release}%{?dist}/" ${spec_dir}/*.spec
-    fi
-    if grep -q -e "%autochangelog" ${spec_dir}/*.spec; then
-        sed -i "/^%autochangelog/d" ${spec_dir}/*.spec
-        rpmautospec generate-changelog >> ${spec_dir}/*.spec
-        sed -i -e '/%changelog/{n;N;N;d;}' ${spec_dir}/*.spec
-    fi
+
     result=$(rpmbuild -bs --define="_rpmdir ${rpm_dir}" --define="_srcrpmdir ${srpm_dir}" --define="_sourcedir ${source_dir}" --define="_specdir ${spec_dir}" --define="_builddir ${build_dir}" --define="dist ${dist}" --buildroot='${buildroot_dir}' ${spec_dir}/*.spec)
     srpm_filename=$(find $srpm_dir -name *.src.rpm -printf "%f")
     git stash >/dev/null
