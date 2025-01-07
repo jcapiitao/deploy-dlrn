@@ -97,6 +97,7 @@ function build_srpm(){
         return 2
     fi
     
+    prepare_rpm_topdir $pkg_dir $dist
     rm -f $srpm_dir/*.src.rpm
     release=$(rpmautospec calculate-release | awk '{print $4}')
     if grep -q -e "autorelease" ${spec_dir}/*.spec; then
@@ -110,7 +111,6 @@ function build_srpm(){
         sed -i -e '/%changelog/{n;N;N;d;}' ${spec_dir}/*.spec
     fi
 
-    prepare_rpm_topdir $pkg_dir $dist
     # Download remote sources (only) with debug enabled
     download_sources=$(spectool -g -d "rhel ${centos_vers}" -S -D -C $source_dir $spec_dir/*.spec 2>/dev/null)
     print_out 1 $download_sources
@@ -226,6 +226,16 @@ function is_cbs_target(){
     return 0
 }
 
+function is_cbs_tags(){
+    local tags=$1
+    cbs list-tags --name=$tags >/dev/null 2>&1
+    if [[ $? -ne 0 ]]; then
+       echo -e "The CBS tag $target does not exist"
+       return 1
+    fi
+    return 0
+}
+
 function upload_tarballs_to_look_aside_cache(){
     local project=$1
     local branch=$2
@@ -272,10 +282,15 @@ function update_centos_distgit(){
     local sources_list=""
     local centos_vers=10
     srpm_filename=$(find . -maxdepth 1 -name "*.src.rpm" -printf "%f")
+    if [ ! -n "$srpm_filename" ]; then
+        print_out 0 "There is no SRPM file."
+        return 2
+    fi
+
     tmp_dir=$(mktemp -d --tmpdir=.)
     pushd $tmp_dir >/dev/null
         mkdir {SOURCES,SPECS}
-        rpm2cpio ../*.src.rpm  | cpio -idm >/dev/null
+        rpm2cpio ../$srpm_filename  | cpio -idm >/dev/null
         mv *.spec SPECS
         find . -maxdepth 1 -mindepth 1 -not -name SPECS -not -name SOURCES -exec mv {} SOURCES \;
         # some times tarball are downloaded by the packager so we need to include them as extra in upload_tarballs_to_look_aside_cache script
@@ -327,16 +342,21 @@ function build_on_cbs() {
     local target="$1"
     local project="$2"
     local mode="$3"
-    pushd centos_distgit >/dev/null
-    if ! git log --pretty=oneline | grep -q -e "Import .* in CloudSIG Epoxy"; then
-        echo -e "There is not import commit to build"
+    if [ -d centos_distgit ]; then
+        pushd centos_distgit >/dev/null
+        if ! git log --pretty=oneline | grep -q -e "Import .* in CloudSIG Epoxy"; then
+            echo -e "There is not import commit to build"
+            popd >/dev/null
+            return 1
+        fi
+        local commit_id=$(git log --pretty=oneline -n 1|awk '{print $1}')
+        local nvr=$(git log --pretty=oneline -n1 | sed "s/.*Import \(.*\) in CloudSIG Epoxy/\1/")
         popd >/dev/null
-        return 1
+        local srpm="git+https://git.centos.org/rpms/${project}.git#${commit_id}"
+    else
+        local srpm=$(find $srpm_dir -name *.src.rpm -printf "%f")
+        local nvr=${srpm/.el10.src.rpm} 
     fi
-    local commit_id=$(git log --pretty=oneline -n 1|awk '{print $1}')
-    local nvr=$(git log --pretty=oneline -n1 | sed "s/.*Import \(.*\) in CloudSIG Epoxy/\1/")
-    popd >/dev/null
-    local distgit_url="git+https://git.centos.org/rpms/${project}.git#${commit_id}"
     local workdir=$(mktemp -d --tmpdir=.)
     local tid=$(check_existing_build_on_cbs $workdir $nvr)
     rm -rf $workdir
@@ -360,7 +380,7 @@ function build_on_cbs() {
         fi
     fi
     echo "Start build of: $nvr"
-    cbs build --wait $mode $target $distgit_url
+    cbs build --wait $mode $target $srpm
 }
 
 function check_existing_build_on_cbs() {
@@ -388,7 +408,12 @@ function cbs_build {
         return 1
     fi
     is_cbs_target $target || return 3
-    update_centos_distgit $project $branch && sleep 5 && build_on_cbs $target $project --scratch && build_on_cbs $target $project
+    rc=$(curl -sL --connect-timeout 5 --max-time 10 --retry 5 --retry-delay 0 --retry-max-time 40 -o /dev/null -w "%{http_code}" "https://git.centos.org/rpms/$project")
+    if [ $rc == "200" ]; then
+        update_centos_distgit $project $branch || return 4
+    fi
+    sleep 5
+    build_on_cbs $target $project --scratch && build_on_cbs $target $project
 }
 
 function sync_centos_to_rdo_distgit() {
@@ -409,4 +434,33 @@ function sync_centos_to_rdo_distgit() {
     git add SOURCES/* SPECS/* *
     git commit -m "Update to $version"
     popd
+}
+
+function display_missing_pkgs() {
+    find -name root.log -exec grep -e "No matching package to install" {} \; |  sed "s/.*'\([[:alnum:]-]*\)'/\1/"
+}
+
+function tag_build() {
+    local tag=$1
+    if [[ $tag == "runtime" ]]; then
+        tag="cloud10s-openstack-epoxy-testing"
+    elif [[ $tag == "buildtime" ]]; then
+        tag="cloud10s-openstack-epoxy-el10s-build"
+    else
+        echo -e "Error: needs tag as argument: runtime or buildtime"
+        return 1
+    fi
+
+    srpm_filename=$(find . -maxdepth 1 -name *.src.rpm -printf "%f")
+    pkg=$(echo $srpm_filename | sed 's/.src.rpm/s/')
+    if [ ! -n "$pkg" ]; then
+        echo -e "Error: no pkg found"
+        return 2
+    fi
+
+    if cbs list-tagged $tag | grep -q -e "$pkg" ; then
+        echo "$pkg is already tagged"
+    else
+        cbs tag-build --nowait $tag $pkg && cbs untag-build cloud10s-openstack-epoxy-candidate $pkg
+    fi
 }
