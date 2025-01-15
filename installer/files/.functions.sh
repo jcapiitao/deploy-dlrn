@@ -419,15 +419,9 @@ function cbs_build {
 function sync_centos_to_rdo_distgit() {
     local project=$(basename $PWD)
     local pkg_info=$(rdopkg findpkg $project)
-    local centos_distgit_url=$(echo -e "$pkg_info" | grep -e "^centos-distgit:" | awk '{print $2}')
     local rdo_distgit_url=$(echo -e "$pkg_info" | grep -e "^distgit:" | awk '{print $2}')
-    tmp_dir=$(mktemp -d --tmpdir=.)
-    git clone -q $centos_distgit_url $tmp_dir/centos_distgit
-    pushd $tmp_dir/centos_distgit >/dev/null
-    git checkout c10s-sig-cloud-openstack-epoxy
-    popd
-    git clone -q $rdo_distgit_url $tmp_dir/rdo_distgit
-    pushd $tmp_dir/rdo_distgit >/dev/null
+    git clone -q $rdo_distgit_url rdo_distgit
+    pushd rdo_distgit >/dev/null
     git checkout c10s-epoxy-rdo
     rsync -avz --exclude=.git ../centos_distgit/* .
     version=$(rpmspec -q SPECS/*spec --queryformat="%{VERSION}\n" 2>/dev/null|head -1)
@@ -452,7 +446,7 @@ function tag_build() {
     fi
 
     srpm_filename=$(find . -maxdepth 1 -name *.src.rpm -printf "%f")
-    pkg=$(echo $srpm_filename | sed 's/.src.rpm/s/')
+    pkg=$(echo $srpm_filename | sed 's/.src.rpm/s/;s/el10ss/el10s/')
     if [ ! -n "$pkg" ]; then
         echo -e "Error: no pkg found"
         return 2
@@ -461,6 +455,57 @@ function tag_build() {
     if cbs list-tagged $tag | grep -q -e "$pkg" ; then
         echo "$pkg is already tagged"
     else
+        pkg_name=$(echo -e "$srpm_filename" | rev | cut -d- -f3- | rev)
+        cbs add-pkg $tag --owner jcapitao $pkg_name
         cbs tag-build --nowait $tag $pkg && cbs untag-build cloud10s-openstack-epoxy-candidate $pkg
     fi
+}
+
+function build_from_cs9() {
+    local project="$1"
+    if [ ! -n "$project" ]; then
+        echo -e "Error: needs project as argument"
+        return 1
+    fi
+    local nvr=$(rdopkg findpkg $project | grep -e "cloud9s-openstack-epoxy-testing" | awk '{print $2}')
+    if [ ! -n "$nvr" ]; then
+        echo -e "Error: no nvr found un c9s-epoxy"
+        return 1
+    fi
+    local pkg_name=$(echo $nvr|rev|cut -d- -f3-|rev)
+    local git_url=$(cbs buildinfo $nvr | grep Source | awk '{print $2}')
+    if [ ! -n "$git_url" ]; then
+        echo -e "Error: no git url found for nvr $nvr"
+        return 1
+    fi
+    cbs build --scratch cloud10s-openstack-epoxy-el10s $git_url && cbs add-pkg cloud10s-openstack-epoxy-candidate --owner jcapitao $pkg_name && cbs build cloud10s-openstack-epoxy-el10s $git_url && download_cs10_rpms cloud $pkg_name
+}
+
+function download_cs10_rpms() {
+    local target="$1"
+    local project="$2"
+    if [ ! -n "$target" ]; then
+        echo -e "Error: needs target as argument"
+        return 1
+    fi
+    if [ ! -n "$project" ]; then
+        echo -e "Error: needs project as argument"
+        return 1
+    fi
+    local nvr=$(cbs list-tagged cloud10s-openstack-epoxy-candidate | grep -e "$project" | awk '{print $1}')
+    if [ ! -n "$nvr" ]; then
+        echo -e "Error: no nvr found in cloud10s-openstack-epoxy-candidate for $project"
+        return 1
+    fi
+    local cnt=$(echo -e "$nvr" | grep -c -e "$project")
+    if [[ "$cnt" != "1" ]]; then
+        echo -e "Error: there is more than on NVR for $project"
+        echo -e "$nvr"
+        return 1
+    fi
+    prepare_mock_build $target
+    pushd $repo_path >/dev/null
+    cbs download-build $nvr
+    popd >/dev/null
+	create_repo $repo_path
 }
