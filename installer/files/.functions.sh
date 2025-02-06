@@ -8,7 +8,7 @@ function prepare_mock_build(){
 
 function add_repo_readme(){
     local repo_path=${1:-$repo_path}
-    cat <<EOF >> $repo_path/_README.txt
+    cat <<EOF > $repo_path/_README.txt
 - build_order.log file contains the order in which the SRPMS/RPMs were built
 - *.buildinfo files contain the distgit URL and the branch from which the SRPMS/RPMS were built
 - *.patch files contain the local changes needed to build. If there is not .patch file for a SRPM, then it was built from the branch without local changes.
@@ -32,11 +32,11 @@ enabled=1
 gpgcheck=0
 """
 EOF
-    [ "$(ls -A $repo_path/repodata)" ] || create_repo $repo_path
+    [ "$(ls -A $repo_path/repodata)" ] || generate_repo $repo_path
     print_out 0 "Mock conf file \t\tOK => $mock_config_file"
 }
 
-function create_repo(){
+function generate_repo(){
     repo_path=$1
     result=$(createrepo $repo_path)
     if [[ $? -eq 0 ]]; then
@@ -55,7 +55,9 @@ function prepare_rpm_topdir(){
         echo -e "Error: needs path as argument"
         return 1
     fi
-    is_spec_dir=$(find $pkg_dir -maxdepth 1 -name SPECS -type d)
+    pushd $pkg_dir >/dev/null 2>&1
+    is_spec_dir=$(find . -maxdepth 1 -name SPECS -type d)
+    popd >/dev/null 2>&1
     if [ -n "$is_spec_dir" ]; then
         top_dir="${pkg_dir}"
         mkdir -p ${top_dir}/{BUILD,BUILDROOT} >/dev/null 2>&1
@@ -99,6 +101,7 @@ function build_srpm(){
     
     prepare_rpm_topdir $pkg_dir $dist
     rm -f $srpm_dir/*.src.rpm
+    pushd $spec_dir >/dev/null 2>&1
     release=$(rpmautospec calculate-release | awk '{print $4}')
     if grep -q -e "autorelease" ${spec_dir}/*.spec; then
         sed -i "s/%autorelease/${release}%{?dist}/" ${spec_dir}/*.spec
@@ -110,6 +113,7 @@ function build_srpm(){
         rpmautospec generate-changelog >> ${spec_dir}/*.spec
         sed -i -e '/%changelog/{n;N;N;d;}' ${spec_dir}/*.spec
     fi
+    popd >/dev/null 2>&1
 
     # Download remote sources (only) with debug enabled
     download_sources=$(spectool -g -d "rhel ${centos_vers}" -S -D -C $source_dir $spec_dir/*.spec 2>/dev/null)
@@ -138,7 +142,6 @@ function mock_build {
         echo -e "Error: needs mock_config_path as argument"
         return 1
     fi
-    build_dir=$(find $PWD -maxdepth 2 -name BUILD -type d)
     ts=$(date +"%Y-%m-%d-%H-%M-%S")
     mkdir $build_dir/$ts
     rm $build_dir/current >/dev/null 2>&1
@@ -157,7 +160,7 @@ function mock_build {
 
 function build {
     target="$1"
-    is_cbs_el10_builds && return 2
+    #is_cbs_el10_builds && return 2
     prepare_mock_build $target
     create_mock_config $target
     build_srpm
@@ -171,7 +174,7 @@ function build {
     mock_build $mock_config_file
     if [[ $? -eq 0 ]]; then
         cp $build_dir/current/*.rpm $repo_path
-	create_repo $repo_path
+	generate_repo $repo_path
         srpm_filename=$(find $build_dir/current/ -name "*.src.rpm" -printf "%f")
 	log_build_order $repo_path $srpm_filename
 	log_build_info $repo_path $srpm_filename
@@ -211,7 +214,7 @@ function list_cbs_builds(){
 function is_cbs_el10_builds(){
     result=$(list_cbs_builds)
     if [[ $? -eq 0 ]]; then
-       echo -e "$result" | grep -e ".el10" && return 0 || return 1
+       echo -e "$result" | grep -e ".el10" | grep -e "COMPLETE" && return 0 || return 1
     fi
     return 1
 }
@@ -402,7 +405,7 @@ function cbs_build {
     local target="cloud10s-openstack-epoxy-el10s"
     local project=$(basename $PWD)
     local branch="c10s-sig-cloud-openstack-epoxy"
-    is_cbs_el10_builds && return 2
+    #is_cbs_el10_builds && return 2
     if [ ! -n "$target" ]; then
         echo -e "Error: needs target as argument"
         return 1
@@ -463,14 +466,20 @@ function tag_build() {
 
 function build_from_cs9() {
     local project="$1"
+    local nvr="$2"
     if [ ! -n "$project" ]; then
         echo -e "Error: needs project as argument"
         return 1
     fi
-    local nvr=$(rdopkg findpkg $project | grep -e "cloud9s-openstack-epoxy-testing" | awk '{print $2}')
+    if [ ! -n "$nvr" ]; then
+        echo -e "Using last NVR promoted in cloud9s-openstack-epoxy-testing"
+        nvr=$(rdopkg findpkg $project | grep -e "cloud9s-openstack-epoxy-" | awk '{print $2}')
+    fi
     if [ ! -n "$nvr" ]; then
         echo -e "Error: no nvr found un c9s-epoxy"
         return 1
+    else
+        echo -e "$nvr"
     fi
     local pkg_name=$(echo $nvr|rev|cut -d- -f3-|rev)
     local git_url=$(cbs buildinfo $nvr | grep Source | awk '{print $2}')
@@ -507,5 +516,5 @@ function download_cs10_rpms() {
     pushd $repo_path >/dev/null
     cbs download-build $nvr
     popd >/dev/null
-	create_repo $repo_path
+	generate_repo $repo_path
 }
