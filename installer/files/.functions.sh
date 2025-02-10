@@ -518,3 +518,53 @@ function download_cs10_rpms() {
     popd >/dev/null
 	generate_repo $repo_path
 }
+
+function build_repo_cbs() {
+    local repo_path="${HOME}/data/repos/cloudsig"
+    >/tmp/pkgs
+    cbs list-tagged cloud10s-openstack-epoxy-candidate | grep -e "cloud10s-openstack-epoxy-" | awk '{print $1}' >> /tmp/pkgs
+    cbs list-tagged cloud10s-openstack-epoxy-testing | grep -e "cloud10s-openstack-epoxy-" | awk '{print $1}' >> /tmp/pkgs
+    cbs list-tagged cloud10s-openstack-epoxy-el10s-build | grep -e "cloud10s-openstack-epoxy-" | awk '{print $1}' >> /tmp/pkgs
+    mkdir $repo_path 2>&1 >/dev/null
+    pushd $repo_path >/dev/null
+    while read pkg; do
+        cbs download-build $pkg
+    done < /tmp/pkgs
+    rm -rf python3-aiohttp+speedups*
+    rm -rf python3-kafka+zstd*
+    rm -rf python3-kafka+snappy*
+    rm -rf python3-pyglet-1.4.6-4*
+    rm -rf python-txaio-doc*
+    rm -rf abseil-cpp-testing*
+    createrepo $repo_path
+    popd >/dev/null
+}
+
+function get_distgit_info() {
+    local input_file=$1
+    if [ ! -n "$input_file" ]; then
+        echo -e "Error: needs input file as argument"
+        return 1
+    fi
+    if [[ ! -f "$input_file" ]]; then
+        echo "File '$input_file' not found" 
+        return 1
+    fi
+    while read project; do
+        local in_rdoinfo=0
+        local in_rdo_distgit=0
+        local in_centos_distgit=0
+        if rdopkg findpkg $project >/dev/null 2>&1; then
+            in_rdoinfo=1
+        fi
+        rc=$(curl -sL --connect-timeout 5 --max-time 10 --retry 5 --retry-delay 0 --retry-max-time 40 -o /dev/null -w "%{http_code}\n" https://review.rdoproject.org/cgit/deps/$project/)
+        if [ $rc == "200" ]; then
+            in_rdo_distgit=1
+        fi
+        rc=$(curl -sL --connect-timeout 5 --max-time 10 --retry 5 --retry-delay 0 --retry-max-time 40 -o /dev/null -w "%{http_code}\n" https://git.centos.org/rpms/$project/)
+        if [ $rc == "200" ]; then
+            in_centos_distgit=1
+        fi
+        echo -e "$project $in_rdoinfo $in_rdo_distgit $in_centos_distgit"
+    done < $input_file
+}
